@@ -45,7 +45,7 @@ logger = logging.getLogger("server")
 # { run_id: { "status": str, "events": [...], "report": dict | None } }
 _runs: dict[str, dict] = {}
 
-app = FastAPI(title="Research Assistant API")
+app = FastAPI(title="Ask Kian API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_methods=["*"], allow_headers=["*"])
 
