@@ -530,6 +530,35 @@
     color: var(--text-muted); white-space: nowrap;
   }
 
+  /* Query chips */
+  .query-chips {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 14px;
+  }
+  .query-chip {
+    font-family: var(--sans); font-size: 0.75rem;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    padding: 5px 13px;
+    cursor: pointer; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .query-chip:hover { border-color: var(--accent); color: var(--accent2); background: var(--surface2); }
+
+  /* Section copy button */
+  .copy-btn {
+    background: none; border: none;
+    padding: 3px 8px; border-radius: 6px;
+    color: var(--text-muted); cursor: pointer;
+    font-size: 0.7rem; font-family: var(--sans);
+    display: flex; align-items: center; gap: 4px;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .copy-btn:hover { color: var(--accent2); background: var(--surface2); }
+  .copy-btn.copied { color: var(--green); }
+
   /* Fade-in animation */
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(12px); }
@@ -575,6 +604,13 @@
     <button class="advanced-toggle" onclick="toggleAdvanced()">
       ⚙ Advanced options
     </button>
+    <div class="query-chips" id="queryChips">
+      <button class="query-chip" onclick="useChip(this)">Top AI breakthroughs in 2025</button>
+      <button class="query-chip" onclick="useChip(this)">Best investment strategies for beginners</button>
+      <button class="query-chip" onclick="useChip(this)">How does CRISPR gene editing work?</button>
+      <button class="query-chip" onclick="useChip(this)">Future of renewable energy</button>
+      <button class="query-chip" onclick="useChip(this)">Impact of social media on mental health</button>
+    </div>
     <div class="advanced-panel" id="advancedPanel">
       <div class="field">
         <label>Sub-queries</label>
@@ -732,7 +768,10 @@ function appendSection(sec) {
   div.innerHTML = `
     <h3>
       ${sec.heading}
-      ${sec.citation_ids.length ? `<span class="cite-count">${sec.citation_ids.length} source${sec.citation_ids.length > 1 ? 's' : ''}</span>` : ''}
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        ${sec.citation_ids.length ? `<span class="cite-count">${sec.citation_ids.length} source${sec.citation_ids.length > 1 ? 's' : ''}</span>` : ''}
+        <button class="copy-btn" onclick="copySection(this)">${copyIcon} Copy</button>
+      </div>
     </h3>
     ${sec.body.split('\n').filter(Boolean).map(p => `<p>${p}</p>`).join('')}
     ${sec.citation_ids.length ? `<div class="section-citations">${sec.citation_ids.map(id => `<span class="cite-tag">${id}</span>`).join('')}</div>` : ''}
@@ -788,6 +827,23 @@ function finalizeStreamedReport(r) {
 function toggleAdvanced() {
   document.getElementById('advancedPanel').classList.toggle('open');
 }
+
+function useChip(el) {
+  document.getElementById('queryInput').value = el.textContent;
+  document.getElementById('queryChips').style.display = 'none';
+  document.getElementById('queryInput').focus();
+}
+
+function copySection(btn) {
+  const section = btn.closest('.section');
+  const text = [...section.querySelectorAll('p')].map(p => p.textContent).join('\n\n');
+  navigator.clipboard.writeText(text).then(() => {
+    btn.innerHTML = '&#10003; Copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerHTML = copyIcon + ' Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+const copyIcon = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
 // Stage helpers
 function setStageActive(name) {
@@ -907,6 +963,7 @@ async function startResearch() {
   if (!query) return;
 
   clearError();
+  document.getElementById('queryChips').style.display = 'none';
   document.getElementById('searchBtn').disabled = true;
   document.getElementById('report').classList.remove('visible');
   document.getElementById('report').innerHTML = '';
@@ -995,7 +1052,10 @@ function renderReport(r) {
     <div class="section fade-up">
       <h3>
         ${sec.heading}
-        ${sec.citation_ids.length ? `<span class="cite-count">${sec.citation_ids.length} source${sec.citation_ids.length>1?'s':''}</span>` : ''}
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          ${sec.citation_ids.length ? `<span class="cite-count">${sec.citation_ids.length} source${sec.citation_ids.length>1?'s':''}</span>` : ''}
+          <button class="copy-btn" onclick="copySection(this)">${copyIcon} Copy</button>
+        </div>
       </h3>
       ${sec.body.split('\n').filter(Boolean).map(p => `<p>${p}</p>`).join('')}
       ${sec.citation_ids.length ? `
