@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Assistant — Sign in</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:         #0d0f14;
+    --surface:    #13161e;
+    --surface2:   #1a1e28;
+    --border:     #252a38;
+    --border2:    #2e3448;
+    --text:       #e8eaf2;
+    --text-dim:   #8890a8;
+    --text-muted: #555d78;
+    --accent:     #5b8dee;
+    --accent2:    #7eb3ff;
+    --accent-glow:rgba(91,141,238,0.15);
+    --red:        #e05a6b;
+    --serif:      'DM Serif Display', Georgia, serif;
+    --sans:       'Instrument Sans', sans-serif;
+    --mono:       'DM Mono', monospace;
+    --radius:     10px;
+    --radius-lg:  16px;
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  .card {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 380px;
+    margin: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 40px;
+  }
+
+  .wordmark {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 32px;
+  }
+  .wordmark-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+  .wordmark h1 {
+    font-family: var(--serif); font-size: 1.5rem;
+    font-weight: 400; letter-spacing: -0.02em; color: var(--text);
+  }
+  .wordmark h1 span { color: var(--accent2); font-style: italic; }
+
+  .eyebrow {
+    font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-muted);
+    font-weight: 500; margin-bottom: 20px;
+  }
+
+  .field { margin-bottom: 14px; }
+  .field input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-family: var(--mono); font-size: 0.9rem;
+    color: var(--text); outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .field input::placeholder { color: var(--text-muted); }
+
+  #loginBtn {
+    width: 100%; margin-top: 6px;
+    padding: 13px;
+    background: var(--accent);
+    border: none; border-radius: var(--radius);
+    font-family: var(--sans); font-size: 0.88rem;
+    font-weight: 600; color: #fff;
+    cursor: pointer; transition: background 0.15s, opacity 0.15s;
+  }
+  #loginBtn:hover:not(:disabled) { background: var(--accent2); }
+  #loginBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  #errorMsg {
+    display: none;
+    margin-top: 14px;
+    font-size: 0.8rem; color: var(--red);
+    text-align: center;
+  }
+  #errorMsg.visible { display: block; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="wordmark">
+    <div class="wordmark-icon">&#128300;</div>
+    <h1>Research <span>Assistant</span></h1>
+  </div>
+  <p class="eyebrow">Enter password to continue</p>
+  <div class="field">
+    <input type="password" id="passwordInput" placeholder="Password" autocomplete="current-password">
+  </div>
+  <button id="loginBtn">Sign in</button>
+  <p id="errorMsg">Incorrect password. Please try again.</p>
+</div>
+
+<script>
+  async function tryLogin() {
+    const password = document.getElementById('passwordInput').value;
+    const btn = document.getElementById('loginBtn');
+    const err = document.getElementById('errorMsg');
+
+    btn.disabled = true;
+    err.classList.remove('visible');
+
+    try {
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      if (res.ok) {
+        window.location.href = '/';
+      } else {
+        err.classList.add('visible');
+        document.getElementById('passwordInput').select();
+      }
+    } catch {
+      err.textContent = 'Network error. Please try again.';
+      err.classList.add('visible');
+    }
+
+    btn.disabled = false;
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', tryLogin);
+  document.getElementById('passwordInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') tryLogin();
+  });
+</script>
+</body>
+</html>

@@ -10,9 +10,11 @@ Endpoints:
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
+import secrets
 import sys
 import uuid
 from pathlib import Path
@@ -20,9 +22,9 @@ from typing import AsyncIterator
 
 import anthropic
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
@@ -48,6 +50,19 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_methods=["*"], allow_headers=["*"])
 
 STATIC_DIR = Path(__file__).parent / "ui"
+
+# ── Password config ───────────────────────────────────────────────────
+# Set APP_PASSWORD in Railway environment variables
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "research123")
+_sessions: set[str] = set()  # active session tokens
+
+def _make_token() -> str:
+    return secrets.token_hex(32)
+
+def _check_session(request: Request) -> bool:
+    token = request.cookies.get("session")
+    return token in _sessions
+
 
 
 # ── Request / Response models ─────────────────────────────────────────
@@ -186,15 +201,45 @@ async def _run_pipeline(run_id: str, query: str, config: PipelineConfig):
 # ── Routes ─────────────────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
-async def index():
+async def index(request: Request):
+    if not _check_session(request):
+        login_path = STATIC_DIR / "login.html"
+        if login_path.exists():
+            return HTMLResponse(content=login_path.read_text(encoding="utf-8"))
     html_path = STATIC_DIR / "index.html"
     if html_path.exists():
         return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>UI not found — place index.html in ui/</h1>", status_code=404)
+    return HTMLResponse("<h1>UI not found</h1>", status_code=404)
+
+
+@app.post("/login")
+async def login(request: Request, response: Response):
+    body = await request.json()
+    password = body.get("password", "")
+    if password != APP_PASSWORD:
+        raise HTTPException(status_code=401, detail="Incorrect password")
+    token = _make_token()
+    _sessions.add(token)
+    response.set_cookie(
+        key="session", value=token,
+        httponly=True, samesite="lax",
+        max_age=60 * 60 * 24 * 7  # 7 days
+    )
+    return {"ok": True}
+
+
+@app.post("/logout")
+async def logout(request: Request, response: Response):
+    token = request.cookies.get("session")
+    _sessions.discard(token)
+    response.delete_cookie("session")
+    return {"ok": True}
 
 
 @app.post("/research", response_model=ResearchResponse)
-async def start_research(req: ResearchRequest):
+async def start_research(req: ResearchRequest, request: Request):
+    if not _check_session(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     if not req.query.strip():
         raise HTTPException(400, "Query must not be empty")
 
@@ -217,7 +262,9 @@ async def start_research(req: ResearchRequest):
 
 
 @app.get("/stream/{run_id}")
-async def stream_events(run_id: str):
+async def stream_events(run_id: str, request: Request):
+    if not _check_session(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     if run_id not in _runs:
         raise HTTPException(404, f"Run {run_id} not found")
 
@@ -241,7 +288,9 @@ async def stream_events(run_id: str):
 
 
 @app.get("/report/{run_id}")
-async def get_report(run_id: str):
+async def get_report(run_id: str, request: Request):
+    if not _check_session(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     if run_id not in _runs:
         raise HTTPException(404, f"Run {run_id} not found")
     run = _runs[run_id]
@@ -251,7 +300,9 @@ async def get_report(run_id: str):
 
 
 @app.get("/history")
-async def get_history():
+async def get_history(request: Request):
+    if not _check_session(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     agent = ReportAgent()
     return agent.load_history()
 
