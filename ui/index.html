@@ -977,14 +977,6 @@
   <!-- Report -->
   <div id="report"></div>
 
-  <!-- History -->
-  <div class="history-hint">
-    <button onclick="toggleHistory()">View past research runs</button>
-  </div>
-  <div id="historyPanel">
-    <div class="history-head">Recent runs</div>
-    <div id="historyList"></div>
-  </div>
 
 </div>
 
@@ -1157,6 +1149,8 @@ async function startDebate() {
   document.getElementById('recentReports').classList.remove('visible');
   document.getElementById('bgLayer').classList.remove('loaded');
   document.getElementById('bgCredit').classList.remove('loaded');
+  document.getElementById('stagesContainer').style.display = '';
+  document.getElementById('elapsedTimer').style.color = '';
   document.getElementById('pipeline').classList.remove('visible');
   document.getElementById('report').classList.remove('visible');
   document.getElementById('report').innerHTML = '';
