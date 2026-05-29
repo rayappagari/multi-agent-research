@@ -150,10 +150,19 @@ async def _run_pipeline(run_id: str, query: str, config: PipelineConfig):
             "icon": "🧠"
         })
         result = original_synth(q, sources)
+        sections = result.get("sections", [])
+        for i, section in enumerate(sections):
+            _emit(run_id, "section", {
+                "index": i,
+                "total": len(sections),
+                "heading": section["heading"],
+                "body": section["body"],
+                "citation_ids": section.get("citation_ids", [])
+            })
         _emit(run_id, "progress", {
             "stage": "synthesis",
-            "message": f"Generated {len(result.get('sections', []))} thematic sections",
-            "sections": [s["heading"] for s in result.get("sections", [])]
+            "message": f"Generated {len(sections)} thematic sections",
+            "sections": [s["heading"] for s in sections]
         })
         return result
     coordinator.synthesis_agent.run = patched_synth

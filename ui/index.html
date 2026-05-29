@@ -274,6 +274,16 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* Elapsed timer */
+  .timer {
+    font-family: var(--mono); font-size: 0.75rem;
+    color: var(--accent2);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2px 10px; border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+
   /* ── Report ────────────────────────────────────────────── */
   #report { display: none; }
   #report.visible { display: block; }
@@ -540,6 +550,7 @@
   <div id="pipeline">
     <div class="pipeline-header">
       <h2>Pipeline</h2>
+      <span class="timer" id="elapsedTimer">00:00</span>
       <div class="pipeline-query" id="pipelineQuery"></div>
     </div>
     <div class="stages" id="stagesContainer">
@@ -594,9 +605,11 @@
 
 <script>
 // ── State ──────────────────────────────────────────────────
-let currentRunId = null;
-let eventSource  = null;
-let activeStage  = null;
+let currentRunId  = null;
+let eventSource   = null;
+let activeStage   = null;
+let timerInterval = null;
+let _startTime    = null;
 
 // ── UI helpers ─────────────────────────────────────────────
 function showError(msg) {
@@ -606,6 +619,96 @@ function showError(msg) {
 }
 function clearError() {
   document.getElementById('errorBox').classList.remove('visible');
+}
+
+function startTimer() {
+  _startTime = Date.now();
+  document.getElementById('elapsedTimer').textContent = '00:00';
+  timerInterval = setInterval(() => {
+    const s = Math.floor((Date.now() - _startTime) / 1000);
+    document.getElementById('elapsedTimer').textContent =
+      String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInterval); }
+
+function appendSection(sec) {
+  const reportEl = document.getElementById('report');
+  reportEl.classList.add('visible');
+
+  if (!document.getElementById('report-sections')) {
+    reportEl.innerHTML = `
+      <div id="report-streaming-header" class="report-header fade-up">
+        <div class="report-meta">
+          <span class="pill">Research Report</span>
+          <span class="stat" style="color:var(--accent2)">Generating...</span>
+        </div>
+      </div>
+      <div class="export-bar fade-up" id="export-bar" style="display:none"></div>
+      <div class="sections" id="report-sections"></div>
+      <div class="references-section fade-up" id="report-references" style="display:none"></div>
+    `;
+    reportEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  const container = document.getElementById('report-sections');
+  const div = document.createElement('div');
+  div.className = 'section fade-up';
+  div.innerHTML = `
+    <h3>
+      ${sec.heading}
+      ${sec.citation_ids.length ? `<span class="cite-count">${sec.citation_ids.length} source${sec.citation_ids.length > 1 ? 's' : ''}</span>` : ''}
+    </h3>
+    ${sec.body.split('\n').filter(Boolean).map(p => `<p>${p}</p>`).join('')}
+    ${sec.citation_ids.length ? `<div class="section-citations">${sec.citation_ids.map(id => `<span class="cite-tag">${id}</span>`).join('')}</div>` : ''}
+  `;
+  container.appendChild(div);
+}
+
+function finalizeStreamedReport(r) {
+  const headerEl = document.getElementById('report-streaming-header');
+  if (headerEl) {
+    headerEl.innerHTML = `
+      <div class="report-meta">
+        <span class="pill">Research Report</span>
+        <span class="stat">${r.word_count} words</span>
+        <span class="sep">·</span>
+        <span class="stat">${r.source_count} sources</span>
+        <span class="sep">·</span>
+        <span class="stat">${(r.sections || []).length} sections</span>
+      </div>
+      <h1 class="report-title">${r.title}</h1>
+      <p class="report-summary">${r.summary}</p>
+    `;
+  }
+
+  const exportBar = document.getElementById('export-bar');
+  if (exportBar) {
+    exportBar.style.display = 'flex';
+    exportBar.innerHTML = `
+      <span>Export report</span>
+      <button class="btn-export" onclick="downloadMarkdown()">&#8595; Markdown</button>
+      <button class="btn-export" onclick="downloadJSON()">&#8595; JSON</button>
+    `;
+  }
+
+  const refs = (r.sources || []).map(s => `
+    <div class="ref-item">
+      <span class="ref-id">${s.citation_id || '?'}</span>
+      <div class="ref-body">
+        <div class="ref-title">${s.title}<span class="ref-type">${s.source_type}</span></div>
+        <a class="ref-url" href="${s.url}" target="_blank" rel="noopener">${s.url}</a>
+      </div>
+    </div>
+  `).join('');
+
+  const refsEl = document.getElementById('report-references');
+  if (refsEl) {
+    refsEl.style.display = 'block';
+    refsEl.innerHTML = `<h2>References</h2>${refs}`;
+  }
+
+  window._currentReport = r;
 }
 function toggleAdvanced() {
   document.getElementById('advancedPanel').classList.toggle('open');
@@ -696,14 +799,19 @@ function handleEvent(type, data) {
       }
       break;
 
+    case 'section':
+      appendSection(data);
+      break;
+
     case 'complete':
+      stopTimer();
       finaliseAllStages();
       setStageMsg('report', `Report saved — ${data.word_count} words, ${data.source_count} sources`);
       fetchAndRenderReport();
       break;
 
     case 'error':
-      // Mark active stage as error
+      stopTimer();
       if (activeStage) {
         const el = document.getElementById('stage-' + activeStage);
         if (el) { el.classList.remove('active'); el.classList.add('error'); }
@@ -745,6 +853,7 @@ async function startResearch() {
 
   document.getElementById('pipelineQuery').textContent = query;
   document.getElementById('pipeline').classList.add('visible');
+  startTimer();
 
   const body = {
     query,
@@ -770,7 +879,7 @@ async function startResearch() {
     if (eventSource) eventSource.close();
     eventSource = new EventSource(`/stream/${currentRunId}`);
 
-    ['stage','progress','complete','error'].forEach(evt => {
+    ['stage','progress','complete','error','section'].forEach(evt => {
       eventSource.addEventListener(evt, e => {
         handleEvent(evt, JSON.parse(e.data));
         if (evt === 'complete' || evt === 'error') {
@@ -793,7 +902,11 @@ async function fetchAndRenderReport() {
     const res = await fetch(`/report/${currentRunId}`);
     if (!res.ok) throw new Error('Could not load report');
     const report = await res.json();
-    renderReport(report);
+    if (document.getElementById('report-sections')) {
+      finalizeStreamedReport(report);
+    } else {
+      renderReport(report);
+    }
   } catch (err) {
     showError('Report generated but could not be displayed: ' + err.message);
   }
