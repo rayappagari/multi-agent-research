@@ -386,6 +386,29 @@ async def get_report(run_id: str, request: Request):
     return run["report"]
 
 
+@app.get("/cache-status")
+async def cache_status(request: Request):
+    if not _check_session(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        history = ReportAgent().load_history()
+        return JSONResponse({
+            "count": len(history),
+            "entries": [
+                {
+                    "query": r.get("query", ""),
+                    "title": r.get("title", ""),
+                    "word_count": r.get("word_count", 0),
+                    "source_count": r.get("source_count", 0),
+                    "completed_at": r.get("completed_at", ""),
+                }
+                for r in history
+            ]
+        })
+    except Exception as e:
+        return JSONResponse({"count": 0, "entries": [], "error": str(e)})
+
+
 @app.get("/history")
 async def get_history(request: Request):
     if not _check_session(request):
