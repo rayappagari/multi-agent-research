@@ -386,6 +386,54 @@ async def get_report(run_id: str, request: Request):
     return run["report"]
 
 
+@app.get("/headlines")
+async def get_headlines(request: Request):
+    if not _check_session(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    def _fetch():
+        try:
+            news_key = os.environ.get("NEWS_API_KEY")
+            if news_key:
+                params = urllib.parse.urlencode({
+                    "language": "en", "pageSize": 10, "apiKey": news_key,
+                })
+                req = urllib.request.Request(
+                    f"https://newsapi.org/v2/top-headlines?{params}",
+                    headers={"User-Agent": "AskKian/1.0"}
+                )
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    data = json.loads(resp.read())
+                    return [
+                        {"title": a["title"], "url": a["url"], "source": a["source"]["name"]}
+                        for a in data.get("articles", [])[:10]
+                        if a.get("title") and a.get("url")
+                    ]
+            else:
+                req = urllib.request.Request(
+                    "https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=10",
+                    headers={"User-Agent": "AskKian/1.0"}
+                )
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    data = json.loads(resp.read())
+                    return [
+                        {
+                            "title": h.get("title", ""),
+                            "url": h.get("url") or f"https://news.ycombinator.com/item?id={h.get('objectID')}",
+                            "source": "Hacker News",
+                        }
+                        for h in data.get("hits", [])[:10]
+                        if h.get("title")
+                    ]
+        except Exception as e:
+            logger.error("Headlines fetch failed: %s", e)
+            return []
+
+    loop = asyncio.get_event_loop()
+    headlines = await loop.run_in_executor(None, _fetch)
+    return JSONResponse({"headlines": headlines})
+
+
 @app.get("/cache-status")
 async def cache_status(request: Request):
     if not _check_session(request):
