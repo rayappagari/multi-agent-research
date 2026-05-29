@@ -282,6 +282,33 @@ async def get_background(request: Request, query: str = Query(default="")):
     return JSONResponse(result)
 
 
+async def _serve_cached(run_id: str, report: dict):
+    """Replay a cached report over SSE without touching the pipeline."""
+    await asyncio.sleep(0.15)  # let the client connect first
+    _emit(run_id, "cached", {
+        "message": "Loaded from recent reports",
+        "title": report.get("title", ""),
+    })
+    sections = report.get("sections", [])
+    for i, section in enumerate(sections):
+        _emit(run_id, "section", {
+            "index": i, "total": len(sections),
+            "heading": section["heading"],
+            "body": section["body"],
+            "citation_ids": section.get("citation_ids", []),
+        })
+        await asyncio.sleep(0.06)
+    _emit(run_id, "complete", {
+        "message": "Research complete!",
+        "word_count": report.get("word_count", 0),
+        "source_count": report.get("source_count", 0),
+        "elapsed": 0,
+        "title": report.get("title", ""),
+        "from_cache": True,
+    })
+    _runs[run_id]["status"] = "complete"
+
+
 @app.post("/research", response_model=ResearchResponse)
 async def start_research(req: ResearchRequest, request: Request):
     if not _check_session(request):
@@ -293,15 +320,29 @@ async def start_research(req: ResearchRequest, request: Request):
         raise HTTPException(500, "ANTHROPIC_API_KEY is not set on the server")
 
     run_id = str(uuid.uuid4())[:8]
-    _runs[run_id] = {"status": "running", "events": [], "report": None, "query": req.query}
 
+    # Return cached report if the same query was run before
+    try:
+        history = ReportAgent().load_history()
+        cached = next(
+            (r for r in history
+             if r.get("query", "").strip().lower() == req.query.strip().lower()),
+            None
+        )
+    except Exception:
+        cached = None
+
+    if cached:
+        _runs[run_id] = {"status": "running", "events": [], "report": cached, "query": req.query}
+        asyncio.create_task(_serve_cached(run_id, cached))
+        return ResearchResponse(run_id=run_id, query=req.query)
+
+    _runs[run_id] = {"status": "running", "events": [], "report": None, "query": req.query}
     config = PipelineConfig(
         sub_queries=req.sub_queries,
         max_sources=req.max_sources,
         relevance_threshold=req.relevance_threshold,
     )
-
-    # Fire and forget — client streams progress via /stream/{id}
     asyncio.create_task(_run_pipeline(run_id, req.query, config))
 
     return ResearchResponse(run_id=run_id, query=req.query)

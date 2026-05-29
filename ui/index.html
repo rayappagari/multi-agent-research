@@ -975,6 +975,14 @@ function handleEvent(type, data) {
       }
       break;
 
+    case 'cached':
+      document.getElementById('stagesContainer').style.display = 'none';
+      document.getElementById('pipelineProgressFill').style.width = '100%';
+      document.getElementById('elapsedTimer').textContent = 'cached';
+      document.getElementById('elapsedTimer').style.color = 'var(--green)';
+      stopTimer();
+      break;
+
     case 'section':
       appendSection(data);
       break;
@@ -1009,6 +1017,8 @@ async function startResearch() {
   document.getElementById('queryChips').style.display = 'none';
   document.getElementById('bgLayer').classList.remove('loaded');
   document.getElementById('bgCredit').classList.remove('loaded');
+  document.getElementById('stagesContainer').style.display = '';
+  document.getElementById('elapsedTimer').style.color = '';
   document.getElementById('searchBtn').disabled = true;
   document.getElementById('report').classList.remove('visible');
   document.getElementById('report').innerHTML = '';
@@ -1060,7 +1070,7 @@ async function startResearch() {
     if (eventSource) eventSource.close();
     eventSource = new EventSource(`/stream/${currentRunId}`);
 
-    ['stage','progress','complete','error','section'].forEach(evt => {
+    ['stage','progress','complete','error','section','cached'].forEach(evt => {
       eventSource.addEventListener(evt, e => {
         handleEvent(evt, JSON.parse(e.data));
         if (evt === 'complete' || evt === 'error') {
