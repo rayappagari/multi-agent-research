@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & base ─────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:         #0d0f14;
+    --surface:    #13161e;
+    --surface2:   #1a1e28;
+    --border:     #252a38;
+    --border2:    #2e3448;
+    --text:       #e8eaf2;
+    --text-dim:   #8890a8;
+    --text-muted: #555d78;
+    --accent:     #5b8dee;
+    --accent2:    #7eb3ff;
+    --accent-glow:rgba(91,141,238,0.15);
+    --green:      #4ecb8d;
+    --amber:      #f5b942;
+    --red:        #e05a6b;
+    --serif:      'DM Serif Display', Georgia, serif;
+    --sans:       'Instrument Sans', sans-serif;
+    --mono:       'DM Mono', monospace;
+    --radius:     10px;
+    --radius-lg:  16px;
+  }
+
+  html { font-size: 16px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── Noise texture overlay ─────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  /* ── Layout ────────────────────────────────────────────── */
+  .app { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* ── Header ────────────────────────────────────────────── */
+  header {
+    padding: 52px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+  .wordmark {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px;
+  }
+  .wordmark-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .wordmark h1 {
+    font-family: var(--serif); font-size: 1.6rem;
+    font-weight: 400; letter-spacing: -0.02em; color: var(--text);
+  }
+  .wordmark h1 span { color: var(--accent2); font-style: italic; }
+  header p {
+    font-size: 0.85rem; color: var(--text-dim);
+    max-width: 440px; line-height: 1.5;
+    padding-left: 38px;
+  }
+
+  /* ── Search bar ────────────────────────────────────────── */
+  .search-wrap {
+    position: relative;
+    margin-bottom: 40px;
+  }
+  .search-box {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .search-box:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  #queryInput {
+    flex: 1;
+    background: transparent;
+    border: none; outline: none;
+    padding: 18px 20px;
+    font-family: var(--sans); font-size: 0.95rem;
+    color: var(--text);
+    caret-color: var(--accent);
+  }
+  #queryInput::placeholder { color: var(--text-muted); }
+  #searchBtn {
+    padding: 14px 24px;
+    background: var(--accent);
+    border: none; cursor: pointer;
+    font-family: var(--sans); font-size: 0.85rem;
+    font-weight: 600; color: #fff;
+    letter-spacing: 0.02em;
+    transition: background 0.15s, opacity 0.15s;
+    display: flex; align-items: center; gap: 8px;
+    white-space: nowrap;
+    margin: 6px;
+    border-radius: 10px;
+  }
+  #searchBtn:hover:not(:disabled) { background: var(--accent2); }
+  #searchBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+  #searchBtn .btn-icon { font-size: 1rem; }
+
+  /* ── Advanced options toggle ───────────────────────────── */
+  .advanced-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.78rem; color: var(--text-muted);
+    cursor: pointer; margin-top: 10px;
+    background: none; border: none; padding: 4px 0;
+    font-family: var(--sans);
+    transition: color 0.15s;
+  }
+  .advanced-toggle:hover { color: var(--text-dim); }
+  .advanced-panel {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 12px;
+    gap: 20px;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .advanced-panel.open { display: grid; }
+  .field label {
+    display: block; font-size: 0.72rem;
+    color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .field input[type=range] { width: 100%; accent-color: var(--accent); }
+  .field .val {
+    font-family: var(--mono); font-size: 0.8rem;
+    color: var(--accent2); margin-top: 4px;
+  }
+
+  /* ── Pipeline stages ───────────────────────────────────── */
+  #pipeline { display: none; margin-bottom: 48px; }
+  #pipeline.visible { display: block; }
+
+  .pipeline-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .pipeline-header h2 {
+    font-family: var(--sans); font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-muted); font-weight: 500;
+  }
+  .pipeline-query {
+    font-size: 0.78rem; color: var(--text-dim);
+    font-family: var(--mono);
+    background: var(--surface);
+    padding: 3px 10px; border-radius: 20px;
+    border: 1px solid var(--border);
+    max-width: 340px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  .stages { display: flex; flex-direction: column; gap: 2px; }
+
+  .stage {
+    display: flex; align-items: flex-start; gap: 16px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    transition: border-color 0.3s, background 0.3s;
+    opacity: 0.4;
+  }
+  .stage.active {
+    opacity: 1;
+    border-color: var(--accent);
+    background: var(--surface2);
+    box-shadow: inset 0 0 0 1px var(--accent-glow);
+  }
+  .stage.done { opacity: 1; border-color: var(--border2); }
+  .stage.error { opacity: 1; border-color: var(--red); }
+
+  .stage-icon {
+    width: 32px; height: 32px;
+    background: var(--surface2);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; flex-shrink: 0;
+    border: 1px solid var(--border);
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .stage.active .stage-icon { background: var(--accent-glow); border-color: var(--accent); }
+  .stage.done .stage-icon { background: rgba(78,203,141,0.1); border-color: var(--green); }
+
+  .stage-body { flex: 1; min-width: 0; }
+  .stage-name {
+    font-size: 0.82rem; font-weight: 600;
+    color: var(--text); margin-bottom: 2px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .stage-name .badge {
+    font-family: var(--mono); font-size: 0.68rem;
+    background: var(--surface2); color: var(--text-dim);
+    padding: 1px 7px; border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .stage-name .badge.green { background: rgba(78,203,141,0.1); color: var(--green); border-color: rgba(78,203,141,0.3); }
+  .stage-msg {
+    font-size: 0.78rem; color: var(--text-dim);
+    line-height: 1.4;
+  }
+  .stage-detail {
+    margin-top: 8px;
+    font-size: 0.74rem; color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* Source chips */
+  .source-chips {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+  }
+  .chip {
+    font-size: 0.68rem; padding: 3px 9px;
+    border-radius: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    max-width: 200px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    cursor: default;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* Section list */
+  .section-list {
+    display: flex; flex-direction: column; gap: 4px; margin-top: 8px;
+  }
+  .section-item {
+    font-size: 0.74rem; color: var(--text-dim);
+    padding: 4px 10px;
+    background: var(--surface2);
+    border-radius: 6px;
+    border-left: 2px solid var(--accent);
+  }
+
+  /* Spinner */
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Report ────────────────────────────────────────────── */
+  #report { display: none; }
+  #report.visible { display: block; }
+
+  .report-header {
+    border-top: 1px solid var(--border);
+    padding-top: 40px; margin-bottom: 36px;
+  }
+  .report-meta {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .report-meta .pill {
+    font-size: 0.68rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 3px 10px; border-radius: 20px;
+    background: rgba(91,141,238,0.12);
+    color: var(--accent2);
+    border: 1px solid rgba(91,141,238,0.25);
+  }
+  .report-meta .stat {
+    font-size: 0.72rem; color: var(--text-muted);
+    font-family: var(--mono);
+  }
+  .report-meta .sep { color: var(--border2); }
+
+  .report-title {
+    font-family: var(--serif);
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 400; line-height: 1.2;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+  .report-summary {
+    font-size: 1rem; line-height: 1.75;
+    color: var(--text-dim);
+    border-left: 3px solid var(--accent);
+    padding-left: 16px;
+    max-width: 680px;
+  }
+
+  .sections { margin-bottom: 48px; }
+  .section { margin-bottom: 36px; }
+  .section h3 {
+    font-family: var(--serif);
+    font-size: 1.2rem; font-weight: 400;
+    color: var(--text); margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .section h3 .cite-count {
+    font-family: var(--sans); font-size: 0.68rem;
+    color: var(--text-muted); font-weight: 500;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2px 8px; border-radius: 10px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .section p {
+    font-size: 0.9rem; line-height: 1.85;
+    color: var(--text-dim); margin-bottom: 12px;
+  }
+  .section-citations {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px;
+  }
+  .cite-tag {
+    font-family: var(--mono); font-size: 0.68rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 2px 8px; border-radius: 6px;
+    transition: border-color 0.15s, color 0.15s;
+    cursor: pointer;
+  }
+  .cite-tag:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* References */
+  .references-section {
+    border-top: 1px solid var(--border);
+    padding-top: 32px;
+  }
+  .references-section h2 {
+    font-family: var(--sans); font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-muted); margin-bottom: 20px;
+    font-weight: 500;
+  }
+  .ref-item {
+    display: flex; gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: flex-start;
+  }
+  .ref-item:last-child { border-bottom: none; }
+  .ref-id {
+    font-family: var(--mono); font-size: 0.7rem;
+    color: var(--accent2);
+    background: rgba(91,141,238,0.08);
+    border: 1px solid rgba(91,141,238,0.2);
+    padding: 2px 7px; border-radius: 5px;
+    white-space: nowrap; flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .ref-body { flex: 1; min-width: 0; }
+  .ref-title {
+    font-size: 0.83rem; font-weight: 600;
+    color: var(--text); margin-bottom: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ref-url {
+    font-family: var(--mono); font-size: 0.7rem;
+    color: var(--text-muted); text-decoration: none;
+    transition: color 0.15s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: block;
+  }
+  .ref-url:hover { color: var(--accent2); }
+  .ref-type {
+    font-size: 0.65rem; padding: 1px 7px;
+    border-radius: 10px; background: var(--surface);
+    border: 1px solid var(--border); color: var(--text-muted);
+    margin-left: 6px; display: inline-block;
+    vertical-align: middle;
+  }
+
+  /* Export bar */
+  .export-bar {
+    display: flex; gap: 10px; margin-bottom: 36px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    align-items: center;
+  }
+  .export-bar span {
+    font-size: 0.78rem; color: var(--text-muted);
+    margin-right: auto;
+  }
+  .btn-export {
+    font-family: var(--sans); font-size: 0.75rem;
+    font-weight: 500; padding: 7px 14px;
+    border-radius: 8px; border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text-dim);
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-export:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* Error state */
+  .error-box {
+    background: rgba(224,90,107,0.08);
+    border: 1px solid rgba(224,90,107,0.3);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    font-size: 0.85rem; color: #f09099;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .error-box.visible { display: block; }
+
+  /* History sidebar hint */
+  .history-hint {
+    font-size: 0.75rem; color: var(--text-muted);
+    text-align: center; margin-top: 40px;
+  }
+  .history-hint button {
+    background: none; border: none; font-family: var(--sans);
+    font-size: 0.75rem; color: var(--accent2);
+    cursor: pointer; text-decoration: underline;
+  }
+
+  /* History panel */
+  #historyPanel {
+    display: none;
+    margin-top: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  #historyPanel.open { display: block; }
+  .history-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;
+  }
+  .history-item {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer; transition: background 0.15s;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-item:hover { background: var(--surface2); }
+  .history-item .h-title { font-size: 0.82rem; color: var(--text); }
+  .history-item .h-meta {
+    font-family: var(--mono); font-size: 0.68rem;
+    color: var(--text-muted); white-space: nowrap;
+  }
+
+  /* Fade-in animation */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up { animation: fadeUp 0.4s ease both; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="wordmark">
+      <div class="wordmark-icon">🔬</div>
+      <h1>Research <span>Assistant</span></h1>
+    </div>
+    <p>Multi-agent research pipeline. Ask any question — get a cited, structured report sourced from the live web.</p>
+  </header>
+
+  <!-- Search -->
+  <div class="search-wrap">
+    <div class="search-box">
+      <input type="text" id="queryInput"
+        placeholder="What do you want to research? e.g. 'Latest advances in quantum computing'"
+        autocomplete="off" spellcheck="false">
+      <button id="searchBtn">
+        <span class="btn-icon">→</span> Research
+      </button>
+    </div>
+    <button class="advanced-toggle" onclick="toggleAdvanced()">
+      ⚙ Advanced options
+    </button>
+    <div class="advanced-panel" id="advancedPanel">
+      <div class="field">
+        <label>Sub-queries</label>
+        <input type="range" min="2" max="8" value="4" id="subQueries"
+               oninput="document.getElementById('sqVal').textContent=this.value">
+        <div class="val" id="sqVal">4</div>
+      </div>
+      <div class="field">
+        <label>Max sources</label>
+        <input type="range" min="4" max="20" value="12" id="maxSources"
+               oninput="document.getElementById('msVal').textContent=this.value">
+        <div class="val" id="msVal">12</div>
+      </div>
+      <div class="field">
+        <label>Relevance threshold</label>
+        <input type="range" min="0.1" max="0.9" step="0.1" value="0.4" id="relevance"
+               oninput="document.getElementById('rtVal').textContent=this.value">
+        <div class="val" id="rtVal">0.4</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Pipeline progress -->
+  <div id="pipeline">
+    <div class="pipeline-header">
+      <h2>Pipeline</h2>
+      <div class="pipeline-query" id="pipelineQuery"></div>
+    </div>
+    <div class="stages" id="stagesContainer">
+      <div class="stage" id="stage-search">
+        <div class="stage-icon">🔎</div>
+        <div class="stage-body">
+          <div class="stage-name">Search Agent <span class="badge" id="badge-search">waiting</span></div>
+          <div class="stage-msg" id="msg-search">Decompose query and search the web</div>
+          <div class="stage-detail" id="detail-search"></div>
+        </div>
+      </div>
+      <div class="stage" id="stage-document">
+        <div class="stage-icon">📄</div>
+        <div class="stage-body">
+          <div class="stage-name">Document Agent <span class="badge" id="badge-document">waiting</span></div>
+          <div class="stage-msg" id="msg-document">Retrieve, license-check, and score sources</div>
+          <div class="stage-detail" id="detail-document"></div>
+        </div>
+      </div>
+      <div class="stage" id="stage-synthesis">
+        <div class="stage-icon">🧠</div>
+        <div class="stage-body">
+          <div class="stage-name">Synthesis Agent <span class="badge" id="badge-synthesis">waiting</span></div>
+          <div class="stage-msg" id="msg-synthesis">Analyse sources and build report structure</div>
+          <div class="stage-detail" id="detail-synthesis"></div>
+        </div>
+      </div>
+      <div class="stage" id="stage-report">
+        <div class="stage-icon">📝</div>
+        <div class="stage-body">
+          <div class="stage-name">Report Agent <span class="badge" id="badge-report">waiting</span></div>
+          <div class="stage-msg" id="msg-report">Assemble and save the final report</div>
+          <div class="stage-detail" id="detail-report"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report -->
+  <div id="report"></div>
+
+  <!-- History -->
+  <div class="history-hint">
+    <button onclick="toggleHistory()">View past research runs</button>
+  </div>
+  <div id="historyPanel">
+    <div class="history-head">Recent runs</div>
+    <div id="historyList"></div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+let currentRunId = null;
+let eventSource  = null;
+let activeStage  = null;
+
+// ── UI helpers ─────────────────────────────────────────────
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '⚠ ' + msg;
+  box.classList.add('visible');
+}
+function clearError() {
+  document.getElementById('errorBox').classList.remove('visible');
+}
+function toggleAdvanced() {
+  document.getElementById('advancedPanel').classList.toggle('open');
+}
+
+// Stage helpers
+function setStageActive(name) {
+  if (activeStage) {
+    const prev = document.getElementById('stage-' + activeStage);
+    if (prev) {
+      prev.classList.remove('active');
+      prev.classList.add('done');
+      const badge = document.getElementById('badge-' + activeStage);
+      if (badge) { badge.textContent = 'done'; badge.className = 'badge green'; }
+      // remove spinner if present
+      const spinner = prev.querySelector('.spinner');
+      if (spinner) spinner.remove();
+    }
+  }
+  activeStage = name;
+  const el = document.getElementById('stage-' + name);
+  if (!el) return;
+  el.classList.add('active');
+  const badge = document.getElementById('badge-' + name);
+  if (badge) { badge.textContent = 'running'; badge.className = 'badge'; }
+
+  // add spinner to stage-name
+  const stageName = el.querySelector('.stage-name');
+  if (stageName && !stageName.querySelector('.spinner')) {
+    const s = document.createElement('div');
+    s.className = 'spinner';
+    stageName.appendChild(s);
+  }
+}
+
+function setStageMsg(name, msg) {
+  const el = document.getElementById('msg-' + name);
+  if (el) el.textContent = msg;
+}
+
+function setStageDetail(name, html) {
+  const el = document.getElementById('detail-' + name);
+  if (el) el.innerHTML = html;
+}
+
+function finaliseAllStages() {
+  ['search','document','synthesis','report'].forEach(name => {
+    const el = document.getElementById('stage-' + name);
+    if (!el) return;
+    el.classList.remove('active');
+    el.classList.add('done');
+    const badge = document.getElementById('badge-' + name);
+    if (badge) { badge.textContent = 'done'; badge.className = 'badge green'; }
+    const spinner = el.querySelector('.spinner');
+    if (spinner) spinner.remove();
+  });
+  activeStage = null;
+}
+
+// ── SSE event handler ──────────────────────────────────────
+function handleEvent(type, data) {
+  switch (type) {
+
+    case 'stage':
+      setStageActive(data.stage === 'start' ? 'search' : data.stage);
+      if (data.stage !== 'start') setStageMsg(data.stage, data.message);
+      break;
+
+    case 'progress':
+      setStageMsg(data.stage, data.message);
+
+      if (data.stage === 'search') {
+        setStageDetail('search', `<span>${data.count} unique results collected</span>`);
+      }
+
+      if (data.stage === 'document' && data.sources) {
+        const chips = data.sources.map(s =>
+          `<span class="chip" title="${s.url}">[${s.citation_id}] ${s.title}</span>`
+        ).join('');
+        setStageDetail('document', `<div class="source-chips">${chips}</div>`);
+      }
+
+      if (data.stage === 'synthesis' && data.sections) {
+        const items = data.sections.map(s =>
+          `<div class="section-item">${s}</div>`
+        ).join('');
+        setStageDetail('synthesis', `<div class="section-list">${items}</div>`);
+      }
+      break;
+
+    case 'complete':
+      finaliseAllStages();
+      setStageMsg('report', `Report saved — ${data.word_count} words, ${data.source_count} sources`);
+      fetchAndRenderReport();
+      break;
+
+    case 'error':
+      // Mark active stage as error
+      if (activeStage) {
+        const el = document.getElementById('stage-' + activeStage);
+        if (el) { el.classList.remove('active'); el.classList.add('error'); }
+        const spinner = el ? el.querySelector('.spinner') : null;
+        if (spinner) spinner.remove();
+      }
+      showError(data.message);
+      document.getElementById('searchBtn').disabled = false;
+      break;
+  }
+}
+
+// ── Start research ─────────────────────────────────────────
+async function startResearch() {
+  const query = document.getElementById('queryInput').value.trim();
+  if (!query) return;
+
+  clearError();
+  document.getElementById('searchBtn').disabled = true;
+  document.getElementById('report').classList.remove('visible');
+  document.getElementById('report').innerHTML = '';
+
+  // Reset stages
+  ['search','document','synthesis','report'].forEach(name => {
+    const el = document.getElementById('stage-' + name);
+    if (!el) return;
+    el.className = 'stage';
+    const badge = document.getElementById('badge-' + name);
+    if (badge) { badge.textContent = 'waiting'; badge.className = 'badge'; }
+    setStageMsg(name, {
+      search: 'Decompose query and search the web',
+      document: 'Retrieve, license-check, and score sources',
+      synthesis: 'Analyse sources and build report structure',
+      report: 'Assemble and save the final report'
+    }[name]);
+    setStageDetail(name, '');
+  });
+  activeStage = null;
+
+  document.getElementById('pipelineQuery').textContent = query;
+  document.getElementById('pipeline').classList.add('visible');
+
+  const body = {
+    query,
+    sub_queries: parseInt(document.getElementById('subQueries').value),
+    max_sources: parseInt(document.getElementById('maxSources').value),
+    relevance_threshold: parseFloat(document.getElementById('relevance').value),
+  };
+
+  try {
+    const res = await fetch('/research', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Server error');
+    }
+    const data = await res.json();
+    currentRunId = data.run_id;
+
+    // Open SSE stream
+    if (eventSource) eventSource.close();
+    eventSource = new EventSource(`/stream/${currentRunId}`);
+
+    ['stage','progress','complete','error'].forEach(evt => {
+      eventSource.addEventListener(evt, e => {
+        handleEvent(evt, JSON.parse(e.data));
+        if (evt === 'complete' || evt === 'error') {
+          eventSource.close();
+          document.getElementById('searchBtn').disabled = false;
+        }
+      });
+    });
+
+  } catch (err) {
+    showError(err.message);
+    document.getElementById('searchBtn').disabled = false;
+  }
+}
+
+// ── Render report ──────────────────────────────────────────
+async function fetchAndRenderReport() {
+  if (!currentRunId) return;
+  try {
+    const res = await fetch(`/report/${currentRunId}`);
+    if (!res.ok) throw new Error('Could not load report');
+    const report = await res.json();
+    renderReport(report);
+  } catch (err) {
+    showError('Report generated but could not be displayed: ' + err.message);
+  }
+}
+
+function renderReport(r) {
+  const sections = (r.sections || []).map(sec => `
+    <div class="section fade-up">
+      <h3>
+        ${sec.heading}
+        ${sec.citation_ids.length ? `<span class="cite-count">${sec.citation_ids.length} source${sec.citation_ids.length>1?'s':''}</span>` : ''}
+      </h3>
+      ${sec.body.split('\n').filter(Boolean).map(p => `<p>${p}</p>`).join('')}
+      ${sec.citation_ids.length ? `
+        <div class="section-citations">
+          ${sec.citation_ids.map(id => `<span class="cite-tag">${id}</span>`).join('')}
+        </div>` : ''}
+    </div>
+  `).join('');
+
+  const refs = (r.sources || []).map(s => `
+    <div class="ref-item">
+      <span class="ref-id">${s.citation_id || '?'}</span>
+      <div class="ref-body">
+        <div class="ref-title">${s.title}<span class="ref-type">${s.source_type}</span></div>
+        <a class="ref-url" href="${s.url}" target="_blank" rel="noopener">${s.url}</a>
+      </div>
+    </div>
+  `).join('');
+
+  const html = `
+    <div class="report-header fade-up">
+      <div class="report-meta">
+        <span class="pill">Research Report</span>
+        <span class="stat">${r.word_count} words</span>
+        <span class="sep">·</span>
+        <span class="stat">${r.source_count} sources</span>
+        <span class="sep">·</span>
+        <span class="stat">${(r.sections||[]).length} sections</span>
+      </div>
+      <h1 class="report-title">${r.title}</h1>
+      <p class="report-summary">${r.summary}</p>
+    </div>
+
+    <div class="export-bar fade-up">
+      <span>Export report</span>
+      <button class="btn-export" onclick="downloadMarkdown()">↓ Markdown</button>
+      <button class="btn-export" onclick="downloadJSON()">↓ JSON</button>
+    </div>
+
+    <div class="sections">${sections}</div>
+
+    <div class="references-section fade-up">
+      <h2>References</h2>
+      ${refs}
+    </div>
+  `;
+
+  const reportEl = document.getElementById('report');
+  reportEl.innerHTML = html;
+  reportEl.classList.add('visible');
+  reportEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Store for export
+  window._currentReport = r;
+}
+
+// ── Export ─────────────────────────────────────────────────
+function downloadMarkdown() {
+  const r = window._currentReport;
+  if (!r) return;
+  let md = `# ${r.title}\n\n> ${r.summary}\n\n`;
+  (r.sections||[]).forEach(s => {
+    md += `## ${s.heading}\n\n${s.body}\n\n`;
+    if (s.citation_ids.length) md += `*Sources: ${s.citation_ids.join(', ')}*\n\n`;
+  });
+  md += `## References\n\n`;
+  (r.sources||[]).forEach(s => { md += `- [${s.citation_id}] [${s.title}](${s.url})\n`; });
+  download('report.md', md, 'text/markdown');
+}
+
+function downloadJSON() {
+  const r = window._currentReport;
+  if (!r) return;
+  download('report.json', JSON.stringify(r, null, 2), 'application/json');
+}
+
+function download(filename, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = filename; a.click();
+}
+
+// ── History ────────────────────────────────────────────────
+async function toggleHistory() {
+  const panel = document.getElementById('historyPanel');
+  if (panel.classList.toggle('open')) {
+    const res = await fetch('/history');
+    const runs = await res.json();
+    const list = document.getElementById('historyList');
+    if (!runs.length) {
+      list.innerHTML = '<div style="padding:16px 18px;font-size:0.8rem;color:var(--text-muted)">No past runs yet.</div>';
+      return;
+    }
+    list.innerHTML = runs.reverse().map(r => `
+      <div class="history-item" onclick="loadHistoryReport(${JSON.stringify(r).replace(/"/g,'&quot;')})">
+        <span class="h-title">${r.title || r.query}</span>
+        <span class="h-meta">${r.word_count}w · ${r.source_count} src · ${(r.completed_at||'').slice(0,10)}</span>
+      </div>
+    `).join('');
+  }
+}
+
+function loadHistoryReport(r) {
+  document.getElementById('historyPanel').classList.remove('open');
+  document.getElementById('pipeline').classList.remove('visible');
+  renderReport(r);
+}
+
+// ── Keyboard shortcut ──────────────────────────────────────
+document.getElementById('queryInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) startResearch();
+});
+document.getElementById('searchBtn').addEventListener('click', startResearch);
+</script>
+</body>
+</html>
