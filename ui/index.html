@@ -162,13 +162,14 @@
   #pipeline.visible { display: block; }
 
   .pipeline-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px;
   }
   .pipeline-header h2 {
     font-family: var(--sans); font-size: 0.72rem;
     text-transform: uppercase; letter-spacing: 0.1em;
     color: var(--text-muted); font-weight: 500;
+    margin-right: auto;
   }
   .pipeline-query {
     font-size: 0.78rem; color: var(--text-dim);
@@ -176,43 +177,90 @@
     background: var(--surface);
     padding: 3px 10px; border-radius: 20px;
     border: 1px solid var(--border);
-    max-width: 340px;
+    max-width: 260px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
-  .stages { display: flex; flex-direction: column; gap: 2px; }
+  /* Overall progress bar */
+  .pipeline-progress {
+    height: 2px; background: var(--border);
+    border-radius: 2px; margin-bottom: 24px; overflow: hidden;
+  }
+  .pipeline-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    transition: width 0.6s ease;
+    width: 0%;
+  }
 
-  .stage {
-    display: flex; align-items: flex-start; gap: 16px;
-    padding: 14px 16px;
+  /* Stepper layout */
+  .stages { display: flex; flex-direction: column; }
+
+  .stage { display: flex; position: relative; }
+
+  .step-track {
+    display: flex; flex-direction: column; align-items: center;
+    width: 36px; flex-shrink: 0;
+  }
+  .step-dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--surface2); border: 2px solid var(--border2);
+    flex-shrink: 0; transition: all 0.3s; position: relative; z-index: 1;
+    margin-top: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .step-connector {
+    width: 2px; flex: 1; min-height: 16px;
+    background: var(--border); transition: background 0.3s;
+  }
+  .stage:last-child .step-connector { display: none; }
+
+  /* Active */
+  .stage.active .step-dot {
+    background: var(--accent); border-color: var(--accent);
+    animation: dotPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes dotPulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--accent-glow); }
+    50%       { box-shadow: 0 0 0 8px rgba(91,141,238,0.04); }
+  }
+
+  /* Done — checkmark via border trick */
+  .stage.done .step-dot {
+    background: var(--green); border-color: var(--green);
+  }
+  .stage.done .step-dot::after {
+    content: '';
+    width: 5px; height: 9px;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: rotate(45deg) translate(-1px, -1px);
+  }
+  .stage.done .step-connector { background: rgba(78,203,141,0.35); }
+
+  /* Error */
+  .stage.error .step-dot { background: var(--red); border-color: var(--red); }
+
+  /* Card */
+  .stage-card {
+    flex: 1; min-width: 0;
+    margin: 8px 0 8px 14px;
+    padding: 13px 16px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    transition: border-color 0.3s, background 0.3s;
-    opacity: 0.4;
+    transition: all 0.3s;
+    opacity: 0.42;
   }
-  .stage.active {
-    opacity: 1;
-    border-color: var(--accent);
+  .stage.active .stage-card {
+    opacity: 1; border-color: var(--accent);
     background: var(--surface2);
-    box-shadow: inset 0 0 0 1px var(--accent-glow);
+    box-shadow: 0 0 0 3px var(--accent-glow), 0 4px 24px rgba(91,141,238,0.07);
   }
-  .stage.done { opacity: 1; border-color: var(--border2); }
-  .stage.error { opacity: 1; border-color: var(--red); }
+  .stage.done .stage-card { opacity: 1; border-color: rgba(78,203,141,0.25); }
+  .stage.error .stage-card { opacity: 1; border-color: rgba(224,90,107,0.3); }
 
-  .stage-icon {
-    width: 32px; height: 32px;
-    background: var(--surface2);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1rem; flex-shrink: 0;
-    border: 1px solid var(--border);
-    transition: background 0.3s, border-color 0.3s;
-  }
-  .stage.active .stage-icon { background: var(--accent-glow); border-color: var(--accent); }
-  .stage.done .stage-icon { background: rgba(78,203,141,0.1); border-color: var(--green); }
-
-  .stage-body { flex: 1; min-width: 0; }
   .stage-name {
     font-size: 0.82rem; font-weight: 600;
     color: var(--text); margin-bottom: 2px;
@@ -226,13 +274,10 @@
   }
   .stage-name .badge.green { background: rgba(78,203,141,0.1); color: var(--green); border-color: rgba(78,203,141,0.3); }
   .stage-msg {
-    font-size: 0.78rem; color: var(--text-dim);
-    line-height: 1.4;
+    font-size: 0.78rem; color: var(--text-dim); line-height: 1.4;
   }
   .stage-detail {
-    margin-top: 8px;
-    font-size: 0.74rem; color: var(--text-muted);
-    line-height: 1.5;
+    margin-top: 8px; font-size: 0.74rem; color: var(--text-muted); line-height: 1.5;
   }
 
   /* Source chips */
@@ -553,34 +598,49 @@
       <span class="timer" id="elapsedTimer">00:00</span>
       <div class="pipeline-query" id="pipelineQuery"></div>
     </div>
+    <div class="pipeline-progress">
+      <div class="pipeline-progress-fill" id="pipelineProgressFill"></div>
+    </div>
     <div class="stages" id="stagesContainer">
       <div class="stage" id="stage-search">
-        <div class="stage-icon">🔎</div>
-        <div class="stage-body">
+        <div class="step-track">
+          <div class="step-dot"></div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="stage-card">
           <div class="stage-name">Search Agent <span class="badge" id="badge-search">waiting</span></div>
           <div class="stage-msg" id="msg-search">Decompose query and search the web</div>
           <div class="stage-detail" id="detail-search"></div>
         </div>
       </div>
       <div class="stage" id="stage-document">
-        <div class="stage-icon">📄</div>
-        <div class="stage-body">
+        <div class="step-track">
+          <div class="step-dot"></div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="stage-card">
           <div class="stage-name">Document Agent <span class="badge" id="badge-document">waiting</span></div>
           <div class="stage-msg" id="msg-document">Retrieve, license-check, and score sources</div>
           <div class="stage-detail" id="detail-document"></div>
         </div>
       </div>
       <div class="stage" id="stage-synthesis">
-        <div class="stage-icon">🧠</div>
-        <div class="stage-body">
+        <div class="step-track">
+          <div class="step-dot"></div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="stage-card">
           <div class="stage-name">Synthesis Agent <span class="badge" id="badge-synthesis">waiting</span></div>
           <div class="stage-msg" id="msg-synthesis">Analyse sources and build report structure</div>
           <div class="stage-detail" id="detail-synthesis"></div>
         </div>
       </div>
       <div class="stage" id="stage-report">
-        <div class="stage-icon">📝</div>
-        <div class="stage-body">
+        <div class="step-track">
+          <div class="step-dot"></div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="stage-card">
           <div class="stage-name">Report Agent <span class="badge" id="badge-report">waiting</span></div>
           <div class="stage-msg" id="msg-report">Assemble and save the final report</div>
           <div class="stage-detail" id="detail-report"></div>
@@ -619,6 +679,12 @@ function showError(msg) {
 }
 function clearError() {
   document.getElementById('errorBox').classList.remove('visible');
+}
+
+const _stageProgress = { search: 12, document: 38, synthesis: 64, report: 88 };
+function setProgress(pct) {
+  const el = document.getElementById('pipelineProgressFill');
+  if (el) el.style.width = pct + '%';
 }
 
 function startTimer() {
@@ -729,6 +795,7 @@ function setStageActive(name) {
     }
   }
   activeStage = name;
+  setProgress(_stageProgress[name] || 0);
   const el = document.getElementById('stage-' + name);
   if (!el) return;
   el.classList.add('active');
@@ -755,6 +822,7 @@ function setStageDetail(name, html) {
 }
 
 function finaliseAllStages() {
+  setProgress(100);
   ['search','document','synthesis','report'].forEach(name => {
     const el = document.getElementById('stage-' + name);
     if (!el) return;
@@ -851,6 +919,7 @@ async function startResearch() {
   });
   activeStage = null;
 
+  setProgress(0);
   document.getElementById('pipelineQuery').textContent = query;
   document.getElementById('pipeline').classList.add('visible');
   startTimer();
