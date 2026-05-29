@@ -41,6 +41,16 @@
     overflow-x: hidden;
   }
 
+  /* Einstein background portrait */
+  #einsteinBg {
+    position: fixed; right: -30px; bottom: 0; z-index: 0;
+    width: 400px; pointer-events: none;
+    opacity: 0.1; filter: grayscale(1) contrast(1.1);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 45%);
+    mask-image: linear-gradient(to right, transparent 0%, black 45%);
+  }
+  #einsteinBg img { width: 100%; display: block; }
+
   /* Dynamic Unsplash background */
   #bgLayer {
     position: fixed; inset: 0; z-index: 0;
@@ -624,6 +634,9 @@
 <body>
 <div id="bgLayer"></div>
 <div id="bgCredit"></div>
+<div id="einsteinBg">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg" alt="">
+</div>
 
 <div class="theme-picker" id="themePicker">
   <button class="theme-toggle" onclick="toggleThemePicker()" title="Change theme">
