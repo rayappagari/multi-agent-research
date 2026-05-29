@@ -1077,6 +1077,16 @@ function clearError() {
   document.getElementById('errorBox').classList.remove('visible');
 }
 
+function handleAuthError() {
+  window.location.href = '/';
+}
+
+async function apiFetch(url, opts = {}) {
+  const res = await fetch(url, opts);
+  if (res.status === 401) { handleAuthError(); return null; }
+  return res;
+}
+
 // ── Status bar ─────────────────────────────────────────────
 function initStatusBar() {
   const now = new Date();
@@ -1110,8 +1120,8 @@ function initStatusBar() {
 // ── Headlines ──────────────────────────────────────────────
 async function loadHeadlines() {
   try {
-    const res = await fetch('/headlines');
-    if (!res.ok) return;
+    const res = await apiFetch('/headlines');
+    if (!res || !res.ok) return;
     const { headlines } = await res.json();
     if (!headlines.length) return;
 
@@ -1170,11 +1180,12 @@ async function startDebate() {
   };
 
   try {
-    const res = await fetch('/debate', {
+    const res = await apiFetch('/debate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+    if (!res) return;
     if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
     const data = await res.json();
     setupDebateStream('for',     data.run_id_for);
@@ -1264,8 +1275,8 @@ function notifyResearchComplete(title, wordCount, sourceCount, elapsed) {
 // ── Recent reports ──────────────────────────────────────────
 async function loadRecentReports() {
   try {
-    const res = await fetch('/history');
-    if (!res.ok) return;
+    const res = await apiFetch('/history');
+    if (!res || !res.ok) return;
     const runs = await res.json();
     const recent = runs.slice().reverse().slice(0, 10);
     if (!recent.length) return;
@@ -1594,11 +1605,12 @@ async function startResearch() {
   };
 
   try {
-    const res = await fetch('/research', {
+    const res = await apiFetch('/research', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
+    if (!res) return;
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.detail || 'Server error');
@@ -1630,7 +1642,8 @@ async function startResearch() {
 async function fetchAndRenderReport() {
   if (!currentRunId) return;
   try {
-    const res = await fetch(`/report/${currentRunId}`);
+    const res = await apiFetch(`/report/${currentRunId}`);
+    if (!res) return;
     if (!res.ok) throw new Error('Could not load report');
     const report = await res.json();
     if (document.getElementById('report-sections')) {
