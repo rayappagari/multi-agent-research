@@ -53,7 +53,7 @@ STATIC_DIR = Path(__file__).parent / "ui"
 
 # ── Password config ───────────────────────────────────────────────────
 # Set APP_PASSWORD in Railway environment variables
-APP_PASSWORD = os.environ.get("APP_PASSWORD", "research123")
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")
 _sessions: set[str] = set()  # active session tokens
 
 def _make_token() -> str:
