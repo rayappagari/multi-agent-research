@@ -80,6 +80,11 @@ class ResearchResponse(BaseModel):
     run_id: str
     query: str
 
+class DebateResponse(BaseModel):
+    run_id_for: str
+    run_id_against: str
+    query: str
+
 
 # ── SSE event helpers ─────────────────────────────────────────────────
 
@@ -245,6 +250,36 @@ async def logout(request: Request, response: Response):
     _sessions.discard(token)
     response.delete_cookie("session")
     return {"ok": True}
+
+
+@app.post("/debate", response_model=DebateResponse)
+async def start_debate(req: ResearchRequest, request: Request):
+    if not _check_session(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not req.query.strip():
+        raise HTTPException(400, "Query must not be empty")
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise HTTPException(500, "ANTHROPIC_API_KEY is not set on the server")
+
+    run_id_for     = str(uuid.uuid4())[:8]
+    run_id_against = str(uuid.uuid4())[:8]
+
+    q_for     = f"{req.query} — Build the strongest possible case FOR this. Focus on supporting evidence, benefits, and arguments in favour."
+    q_against = f"{req.query} — Build the strongest possible case AGAINST this. Focus on opposing evidence, risks, and arguments against."
+
+    config = PipelineConfig(
+        sub_queries=req.sub_queries,
+        max_sources=req.max_sources,
+        relevance_threshold=req.relevance_threshold,
+    )
+
+    _runs[run_id_for]     = {"status": "running", "events": [], "report": None, "query": q_for}
+    _runs[run_id_against] = {"status": "running", "events": [], "report": None, "query": q_against}
+
+    asyncio.create_task(_run_pipeline(run_id_for,     q_for,     config))
+    asyncio.create_task(_run_pipeline(run_id_against, q_against, config))
+
+    return DebateResponse(run_id_for=run_id_for, run_id_against=run_id_against, query=req.query)
 
 
 @app.get("/bg")

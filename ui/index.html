@@ -645,6 +645,69 @@
   .headline-research-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
   .headline-item:hover .headline-research-btn { display: block; }
 
+  /* ── Debate mode ────────────────────────────────────────── */
+  .debate-toggle-btn {
+    width: 40px; height: 40px; flex-shrink: 0;
+    background: none; border: none; border-radius: 8px;
+    cursor: pointer; font-size: 1.1rem; color: var(--text-muted);
+    transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+    margin: 6px 0 6px 4px;
+  }
+  .debate-toggle-btn:hover { background: var(--surface2); color: var(--amber); }
+  .debate-toggle-btn.active { color: var(--amber); background: rgba(245,185,66,0.1); }
+
+  #debateView { display: none; margin-bottom: 48px; }
+  #debateView.visible { display: block; }
+  .debate-header {
+    padding-bottom: 16px; margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .debate-eyebrow {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--amber); font-weight: 600; flex-shrink: 0;
+  }
+  .debate-query {
+    font-family: var(--serif); font-size: 1.3rem;
+    font-weight: 400; color: var(--text); letter-spacing: -0.02em;
+  }
+  .debate-columns {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  @media (max-width: 640px) { .debate-columns { grid-template-columns: 1fr; } }
+  .debate-col { min-width: 0; }
+  .debate-col-header {
+    padding: 9px 14px; border-radius: var(--radius) var(--radius) 0 0;
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; display: flex; align-items: center; gap: 7px;
+    border: 1px solid; border-bottom: none;
+  }
+  .debate-col-header.for-side  { color: var(--green); border-color: rgba(78,203,141,0.3); background: rgba(78,203,141,0.07); }
+  .debate-col-header.against-side { color: var(--red);   border-color: rgba(224,90,107,0.3); background: rgba(224,90,107,0.07); }
+  .debate-col-status {
+    padding: 9px 14px; font-size: 0.73rem; font-family: var(--mono);
+    color: var(--text-muted); background: var(--surface);
+    border: 1px solid var(--border); border-top: none; min-height: 36px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .debate-col-body {
+    border: 1px solid var(--border); border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+    overflow: hidden;
+  }
+  .debate-col-body .section {
+    padding: 14px 16px; border-bottom: 1px solid var(--border); margin: 0;
+  }
+  .debate-col-body .section:last-child { border-bottom: none; }
+  .debate-col-body .section h3 {
+    font-family: var(--serif); font-size: 0.95rem; font-weight: 400;
+    color: var(--text); margin-bottom: 6px; letter-spacing: -0.01em;
+    border-bottom: none; padding-bottom: 0; display: block;
+  }
+  .debate-col-body .section p {
+    font-size: 0.79rem; line-height: 1.7; color: var(--text-dim); margin-bottom: 6px;
+  }
+
   /* Query chips */
   .query-chips {
     display: flex; flex-wrap: wrap; gap: 8px;
@@ -775,8 +838,9 @@
       <input type="text" id="queryInput"
         placeholder="Ask Kian anything — e.g. 'Latest advances in quantum computing'"
         autocomplete="off" spellcheck="false">
+      <button id="debateToggleBtn" class="debate-toggle-btn" onclick="toggleDebateMode()" title="Debate Mode">&#9876;</button>
       <button id="searchBtn">
-        <span class="btn-icon">→</span> Research
+        <span class="btn-icon">→</span> <span id="searchBtnLabel">Research</span>
       </button>
     </div>
     <button class="advanced-toggle" onclick="toggleAdvanced()">
@@ -827,6 +891,26 @@
       <span id="recentCount" style="font-family:var(--mono);font-size:0.68rem"></span>
     </div>
     <div id="recentList"></div>
+  </div>
+
+  <!-- Debate view -->
+  <div id="debateView">
+    <div class="debate-header">
+      <span class="debate-eyebrow">&#9876; Debate</span>
+      <span class="debate-query" id="debateQuery"></span>
+    </div>
+    <div class="debate-columns">
+      <div class="debate-col">
+        <div class="debate-col-header for-side">&#10003; For</div>
+        <div class="debate-col-status" id="debate-status-for">Waiting...</div>
+        <div class="debate-col-body" id="debate-report-for"></div>
+      </div>
+      <div class="debate-col">
+        <div class="debate-col-header against-side">&#10007; Against</div>
+        <div class="debate-col-status" id="debate-status-against">Waiting...</div>
+        <div class="debate-col-body" id="debate-report-against"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Error -->
@@ -1043,6 +1127,114 @@ async function loadHeadlines() {
     `).join('');
     document.getElementById('headlinesSection').style.display = 'block';
   } catch {}
+}
+
+// ── Debate mode ────────────────────────────────────────────
+let debateMode = false;
+
+function toggleDebateMode() {
+  debateMode = !debateMode;
+  document.getElementById('debateToggleBtn').classList.toggle('active', debateMode);
+  document.getElementById('searchBtnLabel').textContent = debateMode ? 'Debate' : 'Research';
+}
+
+async function startDebate() {
+  const query = document.getElementById('queryInput').value.trim();
+  if (!query) return;
+
+  clearError();
+  document.getElementById('queryChips').style.display = 'none';
+  document.getElementById('recentReports').classList.remove('visible');
+  document.getElementById('bgLayer').classList.remove('loaded');
+  document.getElementById('bgCredit').classList.remove('loaded');
+  document.getElementById('pipeline').classList.remove('visible');
+  document.getElementById('report').classList.remove('visible');
+  document.getElementById('report').innerHTML = '';
+  document.getElementById('searchBtn').disabled = true;
+  requestNotificationPermission();
+  fetchBackground(query);
+
+  document.getElementById('debateQuery').textContent = query;
+  document.getElementById('debateView').classList.add('visible');
+  ['for', 'against'].forEach(side => {
+    document.getElementById(`debate-status-${side}`).textContent = 'Starting…';
+    document.getElementById(`debate-status-${side}`).dataset.done = '';
+    document.getElementById(`debate-report-${side}`).innerHTML = '';
+  });
+
+  const body = {
+    query,
+    sub_queries: parseInt(document.getElementById('subQueries').value),
+    max_sources: parseInt(document.getElementById('maxSources').value),
+    relevance_threshold: parseFloat(document.getElementById('relevance').value),
+  };
+
+  try {
+    const res = await fetch('/debate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || 'Server error'); }
+    const data = await res.json();
+    setupDebateStream('for',     data.run_id_for);
+    setupDebateStream('against', data.run_id_against);
+  } catch (err) {
+    showError(err.message);
+    document.getElementById('searchBtn').disabled = false;
+  }
+}
+
+function setupDebateStream(side, runId) {
+  const es = new EventSource(`/stream/${runId}`);
+  ['stage','progress','complete','error','section'].forEach(evt => {
+    es.addEventListener(evt, e => {
+      handleDebateEvent(side, evt, JSON.parse(e.data));
+      if (evt === 'complete' || evt === 'error') {
+        es.close();
+        const forDone     = document.getElementById('debate-status-for').dataset.done === '1';
+        const againstDone = document.getElementById('debate-status-against').dataset.done === '1';
+        if (forDone && againstDone) {
+          document.getElementById('searchBtn').disabled = false;
+          loadRecentReports();
+        }
+      }
+    });
+  });
+}
+
+function handleDebateEvent(side, type, data) {
+  const statusEl = document.getElementById(`debate-status-${side}`);
+  const bodyEl   = document.getElementById(`debate-report-${side}`);
+
+  switch (type) {
+    case 'stage':
+    case 'progress':
+      statusEl.textContent = data.message || '';
+      break;
+    case 'section': {
+      const div = document.createElement('div');
+      div.className = 'section fade-up';
+      div.innerHTML = `
+        <h3>${data.heading}</h3>
+        ${data.body.split('\n').filter(Boolean).map(p => `<p>${p}</p>`).join('')}
+      `;
+      bodyEl.appendChild(div);
+      if (bodyEl.children.length === 1)
+        document.getElementById('debateView').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      break;
+    }
+    case 'complete':
+      statusEl.textContent = `Done — ${data.word_count} words · ${data.source_count} sources`;
+      statusEl.dataset.done = '1';
+      notifyResearchComplete(data.title, data.word_count, data.source_count, data.elapsed);
+      break;
+    case 'error':
+      statusEl.textContent = `Error: ${data.message}`;
+      statusEl.style.color = 'var(--red)';
+      statusEl.dataset.done = '1';
+      break;
+  }
 }
 
 // ── Headline research ──────────────────────────────────────
@@ -1361,6 +1553,7 @@ async function startResearch() {
   clearError();
   document.getElementById('queryChips').style.display = 'none';
   document.getElementById('recentReports').classList.remove('visible');
+  document.getElementById('debateView').classList.remove('visible');
   document.getElementById('bgLayer').classList.remove('loaded');
   document.getElementById('bgCredit').classList.remove('loaded');
   document.getElementById('stagesContainer').style.display = '';
@@ -1569,9 +1762,11 @@ function loadHistoryReport(r) {
 
 // ── Keyboard shortcut ──────────────────────────────────────
 document.getElementById('queryInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) startResearch();
+  if (e.key === 'Enter' && !e.shiftKey) debateMode ? startDebate() : startResearch();
 });
-document.getElementById('searchBtn').addEventListener('click', startResearch);
+document.getElementById('searchBtn').addEventListener('click', () => {
+  debateMode ? startDebate() : startResearch();
+});
 
 initStatusBar();
 loadHeadlines();
