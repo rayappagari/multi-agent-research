@@ -41,6 +41,25 @@
     overflow-x: hidden;
   }
 
+  /* Dynamic Unsplash background */
+  #bgLayer {
+    position: fixed; inset: 0; z-index: 0;
+    background-size: cover; background-position: center;
+    filter: blur(48px) brightness(0.18) saturate(1.4);
+    transform: scale(1.08);
+    opacity: 0; transition: opacity 2s ease;
+    pointer-events: none;
+  }
+  #bgLayer.loaded { opacity: 1; }
+  #bgCredit {
+    position: fixed; bottom: 10px; right: 14px; z-index: 10;
+    font-size: 0.62rem; color: var(--text-muted);
+    opacity: 0; transition: opacity 2s ease;
+  }
+  #bgCredit.loaded { opacity: 1; }
+  #bgCredit a { color: var(--text-muted); text-decoration: none; }
+  #bgCredit a:hover { color: var(--text-dim); }
+
   /* ── Noise texture overlay ─────────────────────────────── */
   body::before {
     content: '';
@@ -568,6 +587,8 @@
 </style>
 </head>
 <body>
+<div id="bgLayer"></div>
+<div id="bgCredit"></div>
 <div class="app">
 
   <!-- Header -->
@@ -730,6 +751,28 @@ const _stageProgress = { search: 12, document: 38, synthesis: 64, report: 88 };
 function setProgress(pct) {
   const el = document.getElementById('pipelineProgressFill');
   if (el) el.style.width = pct + '%';
+}
+
+async function fetchBackground(query) {
+  try {
+    const res = await fetch(`/bg?query=${encodeURIComponent(query)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.url) return;
+
+    const bg = document.getElementById('bgLayer');
+    const credit = document.getElementById('bgCredit');
+    const img = new Image();
+    img.onload = () => {
+      bg.style.backgroundImage = `url(${data.url})`;
+      bg.classList.add('loaded');
+      if (data.credit) {
+        credit.innerHTML = `Photo by <a href="${data.credit_link}?utm_source=ask_kian&utm_medium=referral" target="_blank" rel="noopener">${data.credit}</a> on <a href="https://unsplash.com?utm_source=ask_kian&utm_medium=referral" target="_blank" rel="noopener">Unsplash</a>`;
+        credit.classList.add('loaded');
+      }
+    };
+    img.src = data.url;
+  } catch {}
 }
 
 function startTimer() {
@@ -964,6 +1007,8 @@ async function startResearch() {
 
   clearError();
   document.getElementById('queryChips').style.display = 'none';
+  document.getElementById('bgLayer').classList.remove('loaded');
+  document.getElementById('bgCredit').classList.remove('loaded');
   document.getElementById('searchBtn').disabled = true;
   document.getElementById('report').classList.remove('visible');
   document.getElementById('report').innerHTML = '';
@@ -986,6 +1031,7 @@ async function startResearch() {
   activeStage = null;
 
   setProgress(0);
+  fetchBackground(query);
   document.getElementById('pipelineQuery').textContent = query;
   document.getElementById('pipeline').classList.add('visible');
   startTimer();

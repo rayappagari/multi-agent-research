@@ -16,13 +16,15 @@ import logging
 import os
 import secrets
 import sys
+import urllib.parse
+import urllib.request
 import uuid
 from pathlib import Path
 from typing import AsyncIterator
 
 import anthropic
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -243,6 +245,41 @@ async def logout(request: Request, response: Response):
     _sessions.discard(token)
     response.delete_cookie("session")
     return {"ok": True}
+
+
+@app.get("/bg")
+async def get_background(request: Request, query: str = Query(default="")):
+    if not _check_session(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    key = os.environ.get("UNSPLASH_ACCESS_KEY")
+    if not key or not query.strip():
+        return JSONResponse({"url": None, "credit": None})
+
+    def _fetch():
+        try:
+            params = urllib.parse.urlencode({
+                "query": query[:80],
+                "orientation": "landscape",
+                "client_id": key,
+            })
+            req = urllib.request.Request(
+                f"https://api.unsplash.com/photos/random?{params}",
+                headers={"Accept-Version": "v1"}
+            )
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data = json.loads(resp.read())
+                return {
+                    "url": data["urls"]["regular"],
+                    "credit": data["user"]["name"],
+                    "credit_link": data["user"]["links"]["html"],
+                }
+        except Exception:
+            return {"url": None, "credit": None}
+
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, _fetch)
+    return JSONResponse(result)
 
 
 @app.post("/research", response_model=ResearchResponse)
