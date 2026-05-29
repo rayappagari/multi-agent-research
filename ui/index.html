@@ -634,6 +634,16 @@
     font-family: var(--mono); font-size: 0.66rem;
     color: var(--text-muted); white-space: nowrap; flex-shrink: 0;
   }
+  .headline-research-btn {
+    display: none; flex-shrink: 0;
+    font-family: var(--sans); font-size: 0.7rem; font-weight: 500;
+    color: var(--accent2); background: var(--accent-glow);
+    border: 1px solid rgba(91,141,238,0.25); border-radius: 6px;
+    padding: 3px 9px; cursor: pointer; white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .headline-research-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .headline-item:hover .headline-research-btn { display: block; }
 
   /* Query chips */
   .query-chips {
@@ -1028,10 +1038,35 @@ async function loadHeadlines() {
         <span class="headline-num">${i + 1}</span>
         <a class="headline-title" href="${h.url}" target="_blank" rel="noopener">${h.title}</a>
         <span class="headline-source">${h.source}</span>
+        <button class="headline-research-btn" onclick="researchHeadline(this)">Research &rarr;</button>
       </div>
     `).join('');
     document.getElementById('headlinesSection').style.display = 'block';
   } catch {}
+}
+
+// ── Headline research ──────────────────────────────────────
+function researchHeadline(btn) {
+  const title = btn.closest('.headline-item').querySelector('.headline-title').textContent.trim();
+  document.getElementById('queryInput').value = title;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setTimeout(startResearch, 350);
+}
+
+// ── Browser notifications ──────────────────────────────────
+async function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
+}
+
+function notifyResearchComplete(title, wordCount, sourceCount, elapsed) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (document.hasFocus()) return;
+  const n = new Notification('Ask Kian — Research Complete', {
+    body: `${title}\n${wordCount} words · ${sourceCount} sources · ${Math.round(elapsed || 0)}s`,
+  });
+  n.onclick = () => { window.focus(); n.close(); };
 }
 
 // ── Recent reports ──────────────────────────────────────────
@@ -1301,6 +1336,7 @@ function handleEvent(type, data) {
       setStageMsg('report', `Report saved — ${data.word_count} words, ${data.source_count} sources`);
       fetchAndRenderReport();
       loadRecentReports();
+      notifyResearchComplete(data.title, data.word_count, data.source_count, data.elapsed);
       break;
 
     case 'error':
@@ -1350,6 +1386,7 @@ async function startResearch() {
   });
   activeStage = null;
 
+  requestNotificationPermission();
   setProgress(0);
   fetchBackground(query);
   document.getElementById('pipelineQuery').textContent = query;
