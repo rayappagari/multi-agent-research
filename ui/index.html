@@ -578,6 +578,41 @@
   .copy-btn:hover { color: var(--accent2); background: var(--surface2); }
   .copy-btn.copied { color: var(--green); }
 
+  /* ── Theme picker ──────────────────────────────────────── */
+  .theme-picker {
+    position: fixed; top: 18px; right: 20px; z-index: 50;
+  }
+  .theme-toggle {
+    width: 36px; height: 36px;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--text-muted); transition: all 0.15s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent2); }
+  .theme-panel {
+    display: none; position: absolute; top: 44px; right: 0;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4); min-width: 150px;
+  }
+  .theme-panel.open { display: block; }
+  .theme-panel-label {
+    font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-muted); margin-bottom: 8px; font-weight: 500;
+  }
+  .theme-swatches { display: flex; flex-direction: column; gap: 4px; }
+  .swatch {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 10px; border-radius: 8px;
+    background: none; border: 1px solid transparent;
+    cursor: pointer; transition: all 0.15s;
+    font-family: var(--sans); font-size: 0.78rem;
+    color: var(--text-dim); text-align: left; width: 100%;
+  }
+  .swatch:hover { background: var(--surface2); border-color: var(--border); }
+  .swatch.active { border-color: var(--accent); color: var(--text); }
+  .swatch-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+
   /* Fade-in animation */
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(12px); }
@@ -589,6 +624,22 @@
 <body>
 <div id="bgLayer"></div>
 <div id="bgCredit"></div>
+
+<div class="theme-picker" id="themePicker">
+  <button class="theme-toggle" onclick="toggleThemePicker()" title="Change theme">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/>
+      <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+    </svg>
+  </button>
+  <div class="theme-panel" id="themePanel">
+    <div class="theme-panel-label">Theme</div>
+    <div class="theme-swatches" id="themeSwatches"></div>
+  </div>
+</div>
+
 <div class="app">
 
   <!-- Header -->
@@ -730,6 +781,77 @@
 </div>
 
 <script>
+// ── Themes ─────────────────────────────────────────────────
+const THEMES = {
+  midnight: { label: 'Midnight', dot: '#5b8dee', vars: {
+    '--bg':'#0d0f14','--surface':'#13161e','--surface2':'#1a1e28',
+    '--border':'#252a38','--border2':'#2e3448',
+    '--text':'#e8eaf2','--text-dim':'#8890a8','--text-muted':'#555d78',
+    '--accent':'#5b8dee','--accent2':'#7eb3ff','--accent-glow':'rgba(91,141,238,0.15)',
+  }},
+  light: { label: 'Light', dot: '#4478e6', vars: {
+    '--bg':'#f4f5f9','--surface':'#ffffff','--surface2':'#eef0f6',
+    '--border':'#dde0ec','--border2':'#c8cce0',
+    '--text':'#1a1d2e','--text-dim':'#4a5068','--text-muted':'#9098b8',
+    '--accent':'#4478e6','--accent2':'#2255cc','--accent-glow':'rgba(68,120,230,0.12)',
+  }},
+  forest: { label: 'Forest', dot: '#3ecf72', vars: {
+    '--bg':'#0a1a12','--surface':'#0f2018','--surface2':'#162b20',
+    '--border':'#1e3a2a','--border2':'#254836',
+    '--text':'#d4f0e0','--text-dim':'#7aad90','--text-muted':'#3d6b50',
+    '--accent':'#3ecf72','--accent2':'#6edda0','--accent-glow':'rgba(62,207,114,0.15)',
+  }},
+  sunset: { label: 'Sunset', dot: '#f5843c', vars: {
+    '--bg':'#140d08','--surface':'#1e1208','--surface2':'#28180c',
+    '--border':'#3a2415','--border2':'#4a301e',
+    '--text':'#f2e8d4','--text-dim':'#a88868','--text-muted':'#6b5240',
+    '--accent':'#f5843c','--accent2':'#ffab6e','--accent-glow':'rgba(245,132,60,0.15)',
+  }},
+  void: { label: 'Void', dot: '#a855f7', vars: {
+    '--bg':'#05030a','--surface':'#0d0818','--surface2':'#130f22',
+    '--border':'#1e1a30','--border2':'#27233d',
+    '--text':'#e8e0f8','--text-dim':'#8878b8','--text-muted':'#4a4068',
+    '--accent':'#a855f7','--accent2':'#c084fc','--accent-glow':'rgba(168,85,247,0.15)',
+  }},
+};
+
+function setTheme(name) {
+  const theme = THEMES[name];
+  if (!theme) return;
+  const root = document.documentElement;
+  Object.entries(theme.vars).forEach(([k, v]) => root.style.setProperty(k, v));
+  localStorage.setItem('kian_theme', name);
+  document.querySelectorAll('.swatch').forEach(s =>
+    s.classList.toggle('active', s.dataset.theme === name)
+  );
+}
+
+function toggleThemePicker() {
+  document.getElementById('themePanel').classList.toggle('open');
+}
+
+// Build swatch list
+(function buildSwatches() {
+  const container = document.getElementById('themeSwatches');
+  Object.entries(THEMES).forEach(([key, t]) => {
+    const btn = document.createElement('button');
+    btn.className = 'swatch';
+    btn.dataset.theme = key;
+    btn.innerHTML = `<span class="swatch-dot" style="background:${t.dot}"></span>${t.label}`;
+    btn.onclick = () => { setTheme(key); document.getElementById('themePanel').classList.remove('open'); };
+    container.appendChild(btn);
+  });
+})();
+
+// Close on outside click
+document.addEventListener('click', e => {
+  if (!document.getElementById('themePicker').contains(e.target))
+    document.getElementById('themePanel').classList.remove('open');
+});
+
+// Load saved theme on startup
+setTheme(localStorage.getItem('kian_theme') || 'midnight');
+
 // ── State ──────────────────────────────────────────────────
 let currentRunId  = null;
 let eventSource   = null;
